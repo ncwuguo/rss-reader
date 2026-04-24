@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARCHIVE // RSS READER</title>
+    <!-- Using characterful fonts via Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700&family=Plus+Jakarta+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg: #faf9f6;
+            --fg: #1a1a1a;
+            --accent: #d43f33;
+            /* Crimson accent */
+            --muted: #8c8c8c;
+            --border: #e2e2e2;
+            --sidebar-bg: #f2f1ee;
+            --font-display: 'Fraunces', serif;
+            --font-sans: 'Plus Jakarta Sans', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+            --transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background: var(--bg);
+            color: var(--fg);
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            height: 100vh;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* SIDEBAR - DEEP COMPOSITION */
+        #sidebar {
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            padding: 2rem 0;
+            position: relative;
+            height: 100vh;
+            /* Ensure full height */
+        }
+
+        .brand {
+            padding: 0 2rem 2rem 2rem;
+            font-family: var(--font-display);
+            font-size: 1.5rem;
+            letter-spacing: -0.02em;
+            text-transform: uppercase;
+            border-bottom: 2px solid var(--fg);
+            margin-bottom: 2rem;
+            flex-shrink: 0;
+            /* Don't shrink branding */
+        }
+
+        #feed-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0 1rem;
+            min-height: 0;
+            /* Crucial for flex child scrolling */
+        }
+
+        .feed-group-label {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin: 1.5rem 1rem 0.5rem 1rem;
+            letter-spacing: 0.1em;
+        }
+
+        .feed-item {
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            font-size: 0.9rem;
+            border-radius: 4px;
+            transition: var(--transition);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2px;
+            position: relative;
+        }
+
+        .feed-item:hover {
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        .feed-item.active {
+            background: var(--fg);
+            color: var(--bg);
+        }
+
+        .unread-badge {
+            background: var(--accent);
+            color: white;
+            font-size: 0.7rem;
+            font-family: var(--font-mono);
+            padding: 2px 6px;
+            border-radius: 10px;
+            min-width: 20px;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .feed-item .delete-feed {
+            font-family: var(--font-mono);
+            font-size: 1rem;
+            opacity: 0;
+            transition: var(--transition);
+            color: var(--accent);
+        }
+
+        .feed-item:hover .delete-feed {
+            opacity: 1;
+        }
+
+        /* MAIN CONTENT - EDITORIAL LAYOUT */
+        #main {
+            display: flex;
+            flex-direction: column;
+            background: var(--bg);
+            overflow-y: auto;
+            /* Enable scrolling for the main container */
+        }
+
+        #toolbar {
+            padding: 2rem 3rem;
+            display: flex;
+            /* justify-content: space-between;
+            align-items: flex-end; */
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 1.5rem;
+            background: var(--bg);
+            z-index: 10;
+            position: sticky;
+            /* Make toolbar sticky */
+            top: 0;
+        }
+
+        .view-title-container {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        #current-view-name {
+            font-family: var(--font-display);
+            font-size: 3.5rem;
+            line-height: 1;
+            letter-spacing: -0.04em;
+        }
+
+        .controls {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .btn {
+            background: none;
+            border: 1px solid var(--fg);
+            padding: 0.5rem 1rem;
+            font-family: var(--font-sans);
+            font-weight: 500;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .btn:hover {
+            background: var(--fg);
+            color: var(--bg);
+        }
+
+        .btn.active {
+            background: var(--accent);
+            color: #fff;
+            border-color: var(--accent);
+        }
+
+        #status-text {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            color: var(--accent);
+            text-transform: uppercase;
+            position: absolute;
+            top: 1rem;
+            right: 3rem;
+        }
+
+        /* ARTICLE LIST - THE GRID */
+        #article-list {
+            padding: 0 3rem 5rem 3rem;
+            display: grid;
+            gap: 2.5rem;
+            align-content: start;
+        }
+
+        #article-list.grid {
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        }
+
+        #article-list.list {
+            grid-template-columns: 1fr;
+            gap: 0;
+        }
+
+        .article-item {
+            list-style: none;
+            display: flex;
+            transition: var(--transition);
+            animation: slideIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+
+        /* Grid Item Style */
+        #article-list.grid .article-item {
+            flex-direction: column;
+            gap: 1rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        /* List Item Style */
+        #article-list.list .article-item {
+            flex-direction: row;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+            gap: 1.5rem;
+            min-width: 0;
+            /* Ensures container can shrink for truncation */
+        }
+
+        #article-list.list .article-item:hover {
+            background: rgba(0, 0, 0, 0.02);
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .article-item.read {
+            opacity: 0.4;
+        }
+
+        #article-list.grid .article-item:hover {
+            border-bottom-color: var(--fg);
+        }
+
+        .article-meta-top {
+            display: flex;
+            justify-content: space-between;
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            color: var(--muted);
+            text-transform: uppercase;
+        }
+
+        #article-list.list .article-meta-top {
+            width: 100px;
+            flex-shrink: 0;
+        }
+
+        #article-list.list .article-summary {
+            display: none;
+        }
+
+        .article-title {
+            font-family: var(--font-display);
+            font-size: 1.4rem;
+            line-height: 1.2;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        #article-list.list .article-title {
+            font-size: 1rem;
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-family: var(--font-sans);
+            font-weight: 500;
+            min-width: 0;
+            /* Allow title to shrink for truncation */
+        }
+
+        .article-title:hover {
+            color: var(--accent);
+        }
+
+        .article-summary {
+            font-size: 0.9rem;
+            line-height: 1.6;
+            color: #444;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .article-actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: auto;
+        }
+
+        #article-list.list .article-actions {
+            margin-top: 0;
+            flex-shrink: 0;
+            width: 80px;
+            /* Fixed width to prevent being pushed out */
+            justify-content: flex-end;
+            gap: 0.5rem;
+        }
+
+        .btn-text {
+            background: none;
+            border: none;
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            cursor: pointer;
+            color: var(--muted);
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.3rem;
+            padding: 0.5rem;
+            margin: -0.5rem;
+            min-width: 32px;
+            min-height: 32px;
+            border-radius: 4px;
+        }
+
+        .btn-text:hover {
+            color: var(--fg);
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        .btn-text.active {
+            color: var(--accent);
+        }
+
+        /* MODAL / INPUT BOXES */
+        #add-feed-box {
+            padding: 1rem 2rem 0.5rem 2rem;
+            border-top: 1px solid var(--border);
+            flex-shrink: 0;
+            /* Ensure box doesn't collapse */
+        }
+
+        #feed-url {
+            width: 100%;
+            background: transparent;
+            border: none;
+            border-bottom: 1px solid var(--muted);
+            padding: 0.5rem 0;
+            margin-bottom: 1rem;
+            font-family: var(--font-sans);
+            font-size: 0.8rem;
+            outline: none;
+            transition: var(--transition);
+        }
+
+        #feed-url:focus {
+            border-bottom-color: var(--fg);
+        }
+
+        #opml-box {
+            display: flex;
+            gap: 0.5rem;
+            padding: 0 2rem;
+            flex-shrink: 0;
+            /* margin-bottom: 1rem; */
+            margin-top: 0.5rem;
+            padding-bottom: 0.2rem;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* SCROLLBAR */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--muted);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="sidebar">
+        <div class="brand">Archive</div>
+        <div id="feed-list">
+            <div class="feed-group-label">System</div>
+            <div class="feed-item active" onclick="loadArticles('all', this, 'All Archive')">All items</div>
+            <div class="feed-item" onclick="loadArticles('starred', this, 'Favorites')">Starred</div>
+            <div class="feed-group-label">Subscriptions</div>
+            <!-- Dynamic feeds here -->
+        </div>
+
+        <div id="add-feed-box">
+            <input type="text" id="feed-url" placeholder="Paste RSS XML URL...">
+            <button class="btn" style="width:100%" onclick="addFeed()">Add Source</button>
+        </div>
+
+        <div id="opml-box">
+            <button class="btn" style="flex:1; font-size: 0.6rem;"
+                onclick="document.getElementById('opml-input').click()">Import</button>
+            <button class="btn" style="flex:1; font-size: 0.6rem;" onclick="exportOpml()">Export</button>
+            <input type="file" id="opml-input" class="hidden" accept=".opml,.xml" onchange="importOpml(this)">
+        </div>
+    </div>
+
+    <div id="main">
+        <div id="toolbar">
+            <div class="view-title-container">
+                <span id="current-view-name">All Archive</span>
+                <span id="status-text"></span>
+            </div>
+            <div class="controls">
+                <button id="view-list-btn" class="btn active" onclick="setLayout('list')">List</button>
+                <button id="view-grid-btn" class="btn" onclick="setLayout('grid')">Grid</button>
+                <div style="width: 1rem;"></div>
+                <button class="btn" onclick="refreshCurrent()">Sync Current</button>
+                <button class="btn" onclick="refreshAll()">Sync All</button>
+                <button id="toggle-read-btn" class="btn" onclick="toggleShowRead()">Show Read</button>
+            </div>
+        </div>
+        <ul id="article-list"></ul>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000';
+        let currentFeedId = 'all';
+        let showRead = false;
+        let viewLayout = 'list'; // 'grid' or 'list'
+        let articles = [];
+        let currentPage = 0;
+        let isLoading = false;
+        let hasMore = true;
+        const PAGE_SIZE = 50;
+
+        async function fetchFeeds() {
+            const res = await fetch(`${API_BASE}/feeds/`);
+            const feeds = await res.json();
+            const list = document.getElementById('feed-list');
+
+            // Re-render subscription section
+            const labels = list.querySelectorAll('.feed-group-label');
+            const subLabel = labels[1];
+
+            // Remove everything after the subscriptions label
+            while (subLabel.nextSibling) {
+                list.removeChild(subLabel.nextSibling);
+            }
+
+            feeds.forEach(f => {
+                const div = document.createElement('div');
+                div.className = 'feed-item';
+                if (currentFeedId == f.id) div.classList.add('active');
+                div.innerHTML = `
+                    <span onclick="loadArticles(${f.id}, this.parentElement, '${f.title.replace(/'/g, "\\'")}')">${f.title}</span>
+                    <span class="unread-badge">${f.unread_count}</span>
+                    <!-- 注释掉x号, 防止操作失误 -->
+                    <!-- <span class="delete-feed" onclick="deleteFeed(${f.id}, event)">×</span> -->
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        async function loadArticles(feedId, el, title, append = false) {
+            if (isLoading) return;
+            isLoading = true;
+
+            if (!append) {
+                currentFeedId = feedId;
+                currentPage = 0;
+                articles = [];
+                hasMore = true;
+                document.querySelectorAll('.feed-item').forEach(i => i.classList.remove('active'));
+                if (el) el.classList.add('active');
+                if (title) document.getElementById('current-view-name').innerText = title;
+
+                // Show loading state
+                const list = document.getElementById('article-list');
+                list.innerHTML = '<div style="padding: 2rem; font-family: var(--font-mono); color: var(--muted);">RETRIEVING ARCHIVE...</div>';
+            }
+
+            let url = `${API_BASE}/articles/?skip=${currentPage * PAGE_SIZE}&limit=${PAGE_SIZE}`;
+            if (feedId === 'starred') {
+                url = `${API_BASE}/starred/`;
+                hasMore = false; // Starred usually doesn't have offset in this backend
+            } else if (feedId !== 'all') {
+                url = `${API_BASE}/feeds/${feedId}/articles?skip=${currentPage * PAGE_SIZE}&limit=${PAGE_SIZE}`;
+            }
+
+            try {
+                const res = await fetch(url);
+                const newArticles = await res.json();
+
+                if (newArticles.length < PAGE_SIZE) {
+                    hasMore = false;
+                }
+
+                articles = append ? [...articles, ...newArticles] : newArticles;
+                renderArticles(append ? newArticles : articles, append);
+                currentPage++;
+            } catch (err) {
+                const list = document.getElementById('article-list');
+                if (!append) list.innerHTML = '<div style="padding: 2rem; color: var(--accent);">CONNECTION ERROR</div>';
+            } finally {
+                isLoading = false;
+            }
+        }
+
+        // 接收 itemsToRender 数组，只渲染需要变更的数据
+        function renderArticles(itemsToRender = articles, append = false) {
+            const list = document.getElementById('article-list');
+
+            // 每次渲染前，先移除底部的无限滚动触发器（稍后会重新挂载到最底部）
+            const oldTrigger = document.getElementById('infinite-scroll-trigger');
+            if (oldTrigger) oldTrigger.remove();
+
+            if (!append) {
+                // 只有在非追加模式（如切换侧边栏分类、切换视图）时，才清空列表
+                list.innerHTML = '';
+                list.className = viewLayout;
+            } else {
+                // 移除可能存在的空状态提示
+                const emptyMsg = list.querySelector('div[style*="padding: 2rem"]');
+                if (emptyMsg) emptyMsg.remove();
+            }
+
+            // 过滤出需要显示的内容
+            const filtered = itemsToRender.filter(a => showRead || !a.is_read);
+
+            if (filtered.length === 0 && !append && articles.length === 0) {
+                list.innerHTML = '<div style="padding: 2rem; font-family: var(--font-mono); color: var(--muted); text-align: center;">' +
+                    (hasMore ? 'NO UNREAD IN THIS BATCH - SCROLL FOR MORE' : 'NO ENTRIES FOUND') +
+                    '</div>';
+                // 即使当前批次没有未读数据，只要还有下一页，就把触发器挂上
+                if (hasMore) appendTrigger(list);
+                return;
+            }
+
+            // 祭出大杀器：在内存中操作，脱离文档流，杜绝反复触发重排
+            const fragment = document.createDocumentFragment();
+
+            filtered.forEach((a, index) => {
+                // 防御性编程：防止因为网络并发导致同一篇文章被追加两次
+                if (append && document.querySelector(`.article-item[data-id="${a.id}"]`)) {
+                    return;
+                }
+
+                const li = document.createElement('li');
+                li.className = `article-item ${a.is_read ? 'read' : ''}`;
+                li.setAttribute('data-id', a.id);
+
+                // 只有在追加新元素时，才给它们分配入场动画延迟，老元素不动
+                if (append) li.style.animationDelay = `${Math.min(index * 0.02, 0.5)}s`;
+
+                const date = a.pub_date ? new Date(a.pub_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'undated';
+
+                // 注意：处理 title 的双引号转义，防止破坏 HTML 结构
+                li.innerHTML = `
+                    <div class="article-meta-top">
+                        <span>${date}</span>
+                    </div>
+                    <div class="article-title" title="${a.title.replace(/"/g, '&quot;')}" onclick="window.open('${a.link}', '_blank'); markRead(${a.id})">${a.title}</div>
+                    <div class="article-summary">${a.description || ''}</div>
+                    <div class="article-actions">
+                        <button class="btn-text star-btn ${a.is_starred ? 'active' : ''}" onclick="toggleStar(${a.id}, ${!a.is_starred}, event)">
+                            ${a.is_starred ? '★' : '☆'}
+                        </button>
+                        <button class="btn-text read-btn" onclick="markRead(${a.id}, ${!a.is_read}, event)">
+                            ${a.is_read ? '×' : '✓'}
+                        </button>
+                    </div>
+                `;
+                fragment.appendChild(li);
+            });
+
+            // 将拼装好的内存碎片一次性塞入真实的 DOM 树中
+            list.appendChild(fragment);
+
+            // 重新挂载无限滚动触发器
+            if (hasMore) appendTrigger(list);
+        }
+
+        // 提取出一个独立的方法来管理触发器，保持代码整洁
+        function appendTrigger(list) {
+            const loadMore = document.createElement('div');
+            loadMore.id = 'infinite-scroll-trigger';
+            loadMore.style.height = '10px';
+            loadMore.style.margin = '2rem 0';
+            list.appendChild(loadMore);
+            setupIntersectionObserver();
+        }
+
+        let observer;
+        function setupIntersectionObserver() {
+            if (observer) observer.disconnect();
+
+            observer = new IntersectionObserver((entries) => {
+                if (entries[0].isIntersecting && hasMore && !isLoading) {
+                    loadArticles(currentFeedId, null, null, true);
+                }
+            }, { threshold: 0.1 });
+
+            const trigger = document.getElementById('infinite-scroll-trigger');
+            if (trigger) observer.observe(trigger);
+        }
+
+        function setLayout(layout) {
+            viewLayout = layout;
+            document.getElementById('view-grid-btn').classList.toggle('active', layout === 'grid');
+            document.getElementById('view-list-btn').classList.toggle('active', layout === 'list');
+            renderArticles();
+        }
+
+        async function markRead(id, status = true, event) {
+            if (event) event.stopPropagation();
+            if (currentFeedId === 'starred') return;
+
+            // Optimistic UI update
+            const articleEl = document.querySelector(`.article-item[data-id="${id}"]`);
+            if (articleEl) {
+                if (status && !showRead) {
+                    articleEl.style.opacity = '0';
+                    setTimeout(() => articleEl.classList.add('hidden'), 300);
+                } else {
+                    articleEl.classList.toggle('read', status);
+                    const readBtn = articleEl.querySelector('.read-btn');
+                    if (readBtn) readBtn.innerHTML = status ? '× Unread' : '✓ Read';
+                }
+            }
+
+            // Update local state
+            const idx = articles.findIndex(a => a.id === id);
+            if (idx !== -1) articles[idx].is_read = status;
+
+            await fetch(`${API_BASE}/articles/${id}/read?read=${status}`, { method: 'PUT' });
+        }
+
+        async function toggleStar(id, status, event) {
+            if (event) event.stopPropagation();
+
+            // Optimistic UI update
+            const articleEl = document.querySelector(`.article-item[data-id="${id}"]`);
+            if (articleEl) {
+                const starBtn = articleEl.querySelector('.star-btn');
+                if (starBtn) {
+                    starBtn.classList.toggle('active', status);
+                    starBtn.innerHTML = status ? '★ Starred' : '☆ Star';
+                }
+
+                // If in starred view and unstarring, hide it locally
+                if (currentFeedId === 'starred' && !status) {
+                    articleEl.style.opacity = '0';
+                    setTimeout(() => articleEl.classList.add('hidden'), 300);
+                }
+            }
+
+            // Update local state
+            const idx = articles.findIndex(a => a.id === id);
+            if (idx !== -1) articles[idx].is_starred = status;
+
+            await fetch(`${API_BASE}/articles/${id}/star?star=${status}`, { method: 'PUT' });
+        }
+
+        function toggleShowRead() {
+            showRead = !showRead;
+            document.getElementById('toggle-read-btn').classList.toggle('active', showRead);
+            renderArticles();
+        }
+
+        async function addFeed() {
+            const urlInput = document.getElementById('feed-url');
+            const url = urlInput.value;
+            if (!url) return;
+            setStatus('Adding source...');
+            const res = await fetch(`${API_BASE}/feeds/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url })
+            });
+            if (res.ok) {
+                urlInput.value = '';
+                await fetchFeeds();
+                loadArticles('all', document.querySelector('.feed-item'), 'All Archive');
+                setStatus('Source added');
+            } else {
+                setStatus('Failed to add');
+            }
+        }
+
+        async function deleteFeed(id, event) {
+            event.stopPropagation();
+            if (!confirm('Are you sure you want to delete this feed?')) return;
+            await fetch(`${API_BASE}/feeds/${id}`, { method: 'DELETE' });
+            fetchFeeds();
+            if (currentFeedId == id) loadArticles('all', document.querySelector('.feed-item'), 'All Archive');
+        }
+
+        async function refreshAll() {
+            setStatus('Syncing all sources...');
+            await fetch(`${API_BASE}/refresh/`, { method: 'POST' });
+            await loadArticles(currentFeedId);
+            await fetchFeeds(); // Refresh unread counts
+            setStatus('Done');
+        }
+
+        async function refreshCurrent() {
+            if (currentFeedId === 'all' || currentFeedId === 'starred') {
+                refreshAll();
+                return;
+            }
+            setStatus('Syncing current...');
+            const res = await fetch(`${API_BASE}/feeds/${currentFeedId}/refresh`, { method: 'POST' });
+            if (res.ok) {
+                await loadArticles(currentFeedId);
+                await fetchFeeds(); // Refresh unread counts
+                setStatus('Done');
+            } else {
+                setStatus('Failed');
+            }
+        }
+
+        function setStatus(text) {
+            const el = document.getElementById('status-text');
+            el.innerText = text;
+            setTimeout(() => { if (el.innerText === text) el.innerText = ''; }, 3000);
+        }
+
+        async function importOpml(input) {
+            if (!input.files || !input.files[0]) return;
+            const formData = new FormData();
+            formData.append('file', input.files[0]);
+
+            setStatus('Importing archive...');
+            const res = await fetch(`${API_BASE}/opml/import`, { method: 'POST', body: formData });
+            const data = await res.json();
+            setStatus(data.message);
+            fetchFeeds();
+            input.value = '';
+        }
+
+        function exportOpml() {
+            window.location.href = `${API_BASE}/opml/export`;
+        }
+
+        // Init
+        fetchFeeds();
+        // Set initial state
+        setTimeout(() => {
+            const first = document.querySelector('.feed-item');
+            if (first) first.classList.add('active');
+        }, 100);
+        loadArticles('all', null, 'All Archive');
+    </script>
+</body>
+
+</html>
