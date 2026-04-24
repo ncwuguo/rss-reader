@@ -5,6 +5,7 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -51,6 +52,11 @@ class Article(Base):
     is_starred = Column(Boolean, default=False)
 
     feed = relationship("Feed", back_populates="articles")
+
+    __table_args__ = (
+        Index("idx_pubdate_id", "pub_date", "id"),
+        Index("idx_feed_pubdate_id", "feed_id", "pub_date", "id"),
+    )
 
 
 class StarredArticle(Base):

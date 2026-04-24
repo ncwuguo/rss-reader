@@ -123,32 +123,45 @@ async def delete_feed(feed_id: int, db: Session = Depends(get_db)):
     return {"message": "Feed deleted"}
 
 
+# --- 新增：共用的游标分页查询器 ---
+def _get_paginated_articles(
+    db: Session, feed_id: int | None, cursor: datetime.datetime | None, limit: int
+):
+    query = db.query(database.Article)
+    if feed_id is not None:
+        query = query.filter(database.Article.feed_id == feed_id)
+
+    if cursor:
+        # 核心原理：利用索引瞬间定位到 cursor 时间点，砍掉前面的所有数据
+        query = query.filter(database.Article.pub_date < cursor)
+
+    return (
+        query.order_by(database.Article.pub_date.desc(), database.Article.id.desc())
+        .limit(limit)
+        .all()
+    )
+
+
 @app.get("/articles/", response_model=List[ArticleSchema])
-async def get_articles(skip: int = 0, limit: int = 50, db: Session = Depends(get_db)):
+async def get_articles(
+    cursor: datetime.datetime | None = None,
+    limit: int = 50,
+    db: Session = Depends(get_db),
+):
     return await run_sync_in_thread(
-        lambda: (
-            db.query(database.Article)
-            .order_by(database.Article.pub_date.desc())
-            .offset(skip)
-            .limit(limit)
-            .all()
-        )
+        lambda: _get_paginated_articles(db, None, cursor, limit)
     )
 
 
 @app.get("/feeds/{feed_id}/articles", response_model=List[ArticleSchema])
 async def get_feed_articles(
-    feed_id: int, skip: int = 0, limit: int = 50, db: Session = Depends(get_db)
+    feed_id: int,
+    cursor: datetime.datetime | None = None,
+    limit: int = 50,
+    db: Session = Depends(get_db),
 ):
     return await run_sync_in_thread(
-        lambda: (
-            db.query(database.Article)
-            .filter(database.Article.feed_id == feed_id)
-            .order_by(database.Article.pub_date.desc())
-            .offset(skip)
-            .limit(limit)
-            .all()
-        )
+        lambda: _get_paginated_articles(db, feed_id, cursor, limit)
     )
 
 
@@ -293,7 +306,8 @@ async def import_opml(file: UploadFile = File(...), db: Session = Depends(get_db
                 try:
                     scanner.fetch_and_save_feed(db, entry.url)
                     count += 1
-                except:  # noqa: E722
+                except Exception as e:
+                    print(f"Error occurred while fetching feed {entry.url}: {str(e)}")
                     continue
         return {"message": f"Imported {count} new feeds", "total": len(opml_data.feeds)}
     except Exception as e:

@@ -476,7 +476,8 @@
         let showRead = false;
         let viewLayout = 'list'; // 'grid' or 'list'
         let articles = [];
-        let currentPage = 0;
+        // 废弃无用的相对页码，改用物理时间游标
+        let lastPubDate = null;
         let isLoading = false;
         let hasMore = true;
         const PAGE_SIZE = 50;
@@ -515,7 +516,7 @@
 
             if (!append) {
                 currentFeedId = feedId;
-                currentPage = 0;
+                lastPubDate = null;
                 articles = [];
                 hasMore = true;
                 document.querySelectorAll('.feed-item').forEach(i => i.classList.remove('active'));
@@ -527,12 +528,16 @@
                 list.innerHTML = '<div style="padding: 2rem; font-family: var(--font-mono); color: var(--muted);">RETRIEVING ARCHIVE...</div>';
             }
 
-            let url = `${API_BASE}/articles/?skip=${currentPage * PAGE_SIZE}&limit=${PAGE_SIZE}`;
+            // 优雅地构建游标 URL，丢弃所有的硬编码判断
+            let baseEndpoint = feedId === 'all' ? '/articles/' : `/feeds/${feedId}/articles`;
+            let url = `${API_BASE}${baseEndpoint}?limit=${PAGE_SIZE}`;
+            if (append && lastPubDate) {
+                url += `&cursor=${encodeURIComponent(lastPubDate)}`;
+            }
+
             if (feedId === 'starred') {
                 url = `${API_BASE}/starred/`;
                 hasMore = false; // Starred usually doesn't have offset in this backend
-            } else if (feedId !== 'all') {
-                url = `${API_BASE}/feeds/${feedId}/articles?skip=${currentPage * PAGE_SIZE}&limit=${PAGE_SIZE}`;
             }
 
             try {
@@ -543,9 +548,13 @@
                     hasMore = false;
                 }
 
+                // 提取这一批次里最老的一篇文章的发布时间，作为下一次深潜的锚点
+                if (newArticles.length > 0) {
+                    lastPubDate = newArticles[newArticles.length - 1].pub_date;
+                }
+
                 articles = append ? [...articles, ...newArticles] : newArticles;
                 renderArticles(append ? newArticles : articles, append);
-                currentPage++;
             } catch (err) {
                 const list = document.getElementById('article-list');
                 if (!append) list.innerHTML = '<div style="padding: 2rem; color: var(--accent);">CONNECTION ERROR</div>';
