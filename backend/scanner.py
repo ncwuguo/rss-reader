@@ -91,14 +91,7 @@ async def fetch_and_save_feed(db: Session, feed_url: str):
         db.add_all(new_articles)
         db.commit()
 
-    # Update unread count
-    unread_count = (
-        db.query(database.Article)
-        .filter(database.Article.feed_id == feed.id)
-        .filter(database.Article.is_read == False)
-        .count()
-    )
-    feed.unread_count = unread_count
-    db.commit()
+    # 必须执行 refresh 强行从数据库读取触发器计算后的最新状态
+    db.refresh(feed)
 
     return feed

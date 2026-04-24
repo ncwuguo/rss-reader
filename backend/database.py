@@ -73,3 +73,57 @@ class StarredArticle(Base):
 
 def init_db():
     Base.metadata.create_all(bind=engine)
+    # --- 性能优化：利用底层的 SQLite 触发器（Trigger）接管 unread_count ---
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        # 0. 历史脏数据大清洗：一次性精准校准所有 Feed 的当前未读数。运行过后可以注释掉，因为后续触发器会自动维护。
+        # conn.execute(
+        #     text("""
+        # UPDATE feeds 
+        # SET unread_count = (
+        #     SELECT COUNT(*) FROM articles 
+        #     WHERE articles.feed_id = feeds.id AND articles.is_read = 0
+        # );
+        # """)
+        # )
+
+        # 1. 插入文章时，如果是未读（0），则所属源的未读数 +1
+        conn.execute(
+            text("""
+        CREATE TRIGGER IF NOT EXISTS trg_article_insert_unread
+        AFTER INSERT ON articles
+        WHEN NEW.is_read = 0
+        BEGIN
+            UPDATE feeds SET unread_count = unread_count + 1 WHERE id = NEW.feed_id;
+        END;
+        """)
+        )
+
+        # 2. 更新文章时，如果阅读状态发生变化，动态加减未读数
+        conn.execute(
+            text("""
+        CREATE TRIGGER IF NOT EXISTS trg_article_update_unread
+        AFTER UPDATE OF is_read ON articles
+        WHEN OLD.is_read != NEW.is_read
+        BEGIN
+            UPDATE feeds 
+            SET unread_count = unread_count + CASE WHEN NEW.is_read = 1 THEN -1 ELSE 1 END 
+            WHERE id = NEW.feed_id;
+        END;
+        """)
+        )
+
+        # 3. 删除文章时，如果被删文章是未读（0），则所属源的未读数 -1
+        conn.execute(
+            text("""
+        CREATE TRIGGER IF NOT EXISTS trg_article_delete_unread
+        AFTER DELETE ON articles
+        WHEN OLD.is_read = 0
+        BEGIN
+            UPDATE feeds SET unread_count = unread_count - 1 WHERE id = OLD.feed_id;
+        END;
+        """)
+        )
+
+        conn.commit()
