@@ -259,18 +259,17 @@ async def refresh_all_feeds(
         # Get URLs in the main thread to avoid session issues in background
         feeds = db.query(database.Feed).all()
         urls = [f.url for f in feeds]
-        # Background task gets its own DB session logic if needed,
-        # but here we'll just reuse the injected db carefully or create a new one
-        for url in urls:
-            try:
-                # Note: background tasks should ideally use their own session
-                new_db = database.SessionLocal()
+        # 修复：将 Session 创建移出循环，实现单一连接批处理
+        new_db = database.SessionLocal()
+        try:
+            for url in urls:
                 try:
                     await scanner.fetch_and_save_feed(new_db, url)
-                finally:
-                    new_db.close()
-            except:  # noqa: E722
-                continue
+                except Exception:
+                    new_db.rollback()   # 重置失败的事务，确保会话可用
+                    continue
+        finally:
+            new_db.close()
 
     background_tasks.add_task(run_refresh_task)
     return {"message": "Refresh started in background"}
