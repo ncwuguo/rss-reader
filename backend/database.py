@@ -77,12 +77,19 @@ def init_db():
     from sqlalchemy import text
 
     with engine.connect() as conn:
+        # 开启 WAL 模式，提升并发读写性能
+        conn.execute(text("PRAGMA journal_mode=WAL;"))
+        # 提升忙碌时的重试超时时间 (单位：毫秒)
+        conn.execute(text("PRAGMA busy_timeout=5000;"))
+        # 开启同步优化
+        conn.execute(text("PRAGMA synchronous=NORMAL;"))
+
         # 0. 历史脏数据大清洗：一次性精准校准所有 Feed 的当前未读数。运行过后可以注释掉，因为后续触发器会自动维护。
         # conn.execute(
         #     text("""
-        # UPDATE feeds 
+        # UPDATE feeds
         # SET unread_count = (
-        #     SELECT COUNT(*) FROM articles 
+        #     SELECT COUNT(*) FROM articles
         #     WHERE articles.feed_id = feeds.id AND articles.is_read = 0
         # );
         # """)

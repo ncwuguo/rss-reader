@@ -1,5 +1,7 @@
 import asyncio
 import datetime
+import logging
+from contextlib import asynccontextmanager
 from typing import List
 
 import database
@@ -20,7 +22,16 @@ from sqlalchemy.orm import Session
 
 database.init_db()
 
-app = FastAPI()
+
+# 1. 挂载全局生命周期钩子，确保优雅释放 HTTP 连接池
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
+    await scanner.shared_client.aclose()
+    logging.info("HTTP client connection pool safely closed.")
+
+
+app = FastAPI(lifespan=lifespan)
 
 # Enable CORS for frontend
 app.add_middleware(
@@ -132,7 +143,6 @@ def _get_paginated_articles(
         query = query.filter(database.Article.feed_id == feed_id)
 
     if cursor:
-        # 核心原理：利用索引瞬间定位到 cursor 时间点，砍掉前面的所有数据
         query = query.filter(database.Article.pub_date < cursor)
 
     return (
@@ -259,17 +269,23 @@ async def refresh_all_feeds(
         # Get URLs in the main thread to avoid session issues in background
         feeds = db.query(database.Feed).all()
         urls = [f.url for f in feeds]
-        # 修复：将 Session 创建移出循环，实现单一连接批处理
-        new_db = database.SessionLocal()
-        try:
-            for url in urls:
+
+        # 限制最大并发量，防止瞬间发起的几百个请求打爆系统句柄
+        sem = asyncio.Semaphore(15)
+
+        async def fetch_worker(url):
+            async with sem:
+                # 必须在并发任务内部建立独立的会话，绝不跨协程共享连接
+                session = database.SessionLocal()
                 try:
-                    await scanner.fetch_and_save_feed(new_db, url)
+                    await scanner.fetch_and_save_feed(session, url)
                 except Exception:
-                    new_db.rollback()   # 重置失败的事务，确保会话可用
-                    continue
-        finally:
-            new_db.close()
+                    pass
+                finally:
+                    session.close()
+
+        # 利用 gather 一波流收割所有订阅源
+        await asyncio.gather(*(fetch_worker(url) for url in urls))
 
     background_tasks.add_task(run_refresh_task)
     return {"message": "Refresh started in background"}
@@ -303,7 +319,7 @@ async def import_opml(file: UploadFile = File(...), db: Session = Depends(get_db
             )
             if not existing:
                 try:
-                    scanner.fetch_and_save_feed(db, entry.url)
+                    await scanner.fetch_and_save_feed(db, entry.url)
                     count += 1
                 except Exception as e:
                     print(f"Error occurred while fetching feed {entry.url}: {str(e)}")
