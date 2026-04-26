@@ -5,6 +5,7 @@ import database
 import feedparser
 import httpx
 from dateutil import parser as date_parser
+from logger_config import log
 from sqlalchemy.orm import Session
 
 # 全局复用的 HTTPX 客户端，利用连接池避免每次拉取重新建立 TCP 握手
@@ -17,7 +18,7 @@ async def fetch_and_save_feed(db: Session, feed_url: str):
         response.raise_for_status()
         content = response.text
     except Exception as e:
-        print(f"Error fetching {feed_url}: {e}")
+        log.error(f"Error fetching {feed_url}: {e}")
         return None
 
     # Parse the feed content

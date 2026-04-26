@@ -1,6 +1,5 @@
 import asyncio
 import datetime
-import logging
 from contextlib import asynccontextmanager
 from typing import List
 
@@ -17,6 +16,7 @@ from fastapi import (
     UploadFile,
 )
 from fastapi.middleware.cors import CORSMiddleware
+from logger_config import log
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -28,7 +28,7 @@ database.init_db()
 async def lifespan(app: FastAPI):
     yield
     await scanner.shared_client.aclose()
-    logging.info("HTTP client connection pool safely closed.")
+    log.info("HTTP client connection pool safely closed.")
 
 
 app = FastAPI(lifespan=lifespan)
@@ -322,7 +322,9 @@ async def import_opml(file: UploadFile = File(...), db: Session = Depends(get_db
                     await scanner.fetch_and_save_feed(db, entry.url)
                     count += 1
                 except Exception as e:
-                    print(f"Error occurred while fetching feed {entry.url}: {str(e)}")
+                    log.error(
+                        f"Error occurred while fetching feed {entry.url}: {str(e)}"
+                    )
                     continue
         return {"message": f"Imported {count} new feeds", "total": len(opml_data.feeds)}
     except Exception as e:
