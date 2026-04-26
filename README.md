@@ -33,7 +33,7 @@ Ensure you have Python 3.10+ installed on your system.
 Clone the repository and install the backend dependencies:
 
 ```bash
-git clone https://github.com/ncwuguo/rss_aca.git
+git clone https://github.com/ncwuguo/rss-reader.git
 cd rss_aca
 pip install -r requirements.txt
 ```
