@@ -8,8 +8,16 @@ from dateutil import parser as date_parser
 from logger_config import log
 from sqlalchemy.orm import Session
 
-# 全局复用的 HTTPX 客户端，利用连接池避免每次拉取重新建立 TCP 握手
-shared_client = httpx.AsyncClient(timeout=20.0, follow_redirects=True)
+
+DEFAULT_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Accept": "application/rss+xml, application/xml, text/xml, */*",
+    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+}
+
+shared_client = httpx.AsyncClient(
+    headers=DEFAULT_HEADERS, timeout=20.0, follow_redirects=True
+)
 
 
 async def fetch_and_save_feed(db: Session, feed_url: str):
@@ -24,7 +32,6 @@ async def fetch_and_save_feed(db: Session, feed_url: str):
     # Parse the feed content
     d = await asyncio.to_thread(feedparser.parse, content)
 
-    # 将高危同步数据库操作封装进内部函数，彻底隔离在线程池中执行
     def _db_operations():
         feed = db.query(database.Feed).filter(database.Feed.url == feed_url).first()
         if not feed:
