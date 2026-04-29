@@ -143,7 +143,7 @@ def _get_paginated_articles(
         query = query.filter(database.Article.feed_id == feed_id)
 
     if cursor:
-        query = query.filter(database.Article.pub_date < cursor)
+        query = query.filter(database.Article.pub_date <= cursor)
 
     return (
         query.order_by(database.Article.pub_date.desc(), database.Article.id.desc())
