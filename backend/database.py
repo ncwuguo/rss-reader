@@ -73,18 +73,19 @@ class StarredArticle(Base):
 
 def init_db():
     Base.metadata.create_all(bind=engine)
-    # --- 性能优化：利用底层的 SQLite 触发器（Trigger）接管 unread_count ---
+    # Performance optimization: Use SQLite triggers to natively manage unread_count
     from sqlalchemy import text
 
     with engine.connect() as conn:
-        # 开启 WAL 模式，提升并发读写性能
+        # Enable WAL mode to improve concurrent read/write performance
         conn.execute(text("PRAGMA journal_mode=WAL;"))
-        # 提升忙碌时的重试超时时间 (单位：毫秒)
+        # Increase busy timeout for connection retries (in milliseconds)
         conn.execute(text("PRAGMA busy_timeout=5000;"))
-        # 开启同步优化
+        # Optimize synchronous mode for better I/O throughput
         conn.execute(text("PRAGMA synchronous=NORMAL;"))
 
-        # 0. 历史脏数据大清洗：一次性精准校准所有 Feed 的当前未读数。运行过后可以注释掉，因为后续触发器会自动维护。
+        # 0. One-time historical data cleanup: Calibrate current unread counts for all Feeds.
+        # Can be commented out after the first run, as triggers will handle subsequent updates.
         # conn.execute(
         #     text("""
         # UPDATE feeds
@@ -95,7 +96,7 @@ def init_db():
         # """)
         # )
 
-        # 1. 插入文章时，如果是未读（0），则所属源的未读数 +1
+        # 1. Increment feed unread_count when a new unread article is inserted
         conn.execute(
             text("""
         CREATE TRIGGER IF NOT EXISTS trg_article_insert_unread
@@ -107,7 +108,7 @@ def init_db():
         """)
         )
 
-        # 2. 更新文章时，如果阅读状态发生变化，动态加减未读数
+        # 2. Adjust feed unread_count dynamically when an article's read status changes
         conn.execute(
             text("""
         CREATE TRIGGER IF NOT EXISTS trg_article_update_unread
@@ -121,7 +122,7 @@ def init_db():
         """)
         )
 
-        # 3. 删除文章时，如果被删文章是未读（0），则所属源的未读数 -1
+        # 3. Decrement feed unread_count when an unread article is deleted
         conn.execute(
             text("""
         CREATE TRIGGER IF NOT EXISTS trg_article_delete_unread
