@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 database.init_db()
 
 
-# 1. 挂载全局生命周期钩子，确保优雅释放 HTTP 连接池
+# Global lifespan hook to gracefully close the HTTP client connection pool
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     yield
@@ -134,7 +134,7 @@ async def delete_feed(feed_id: int, db: Session = Depends(get_db)):
     return {"message": "Feed deleted"}
 
 
-# --- 新增：共用的游标分页查询器 ---
+# Shared cursor-based pagination query builder
 def _get_paginated_articles(
     db: Session, feed_id: int | None, cursor: datetime.datetime | None, limit: int
 ):
@@ -270,12 +270,12 @@ async def refresh_all_feeds(
         feeds = db.query(database.Feed).all()
         urls = [f.url for f in feeds]
 
-        # 限制最大并发量，防止瞬间发起的几百个请求打爆系统句柄
+        # Limit maximum concurrency to prevent file descriptor exhaustion
         sem = asyncio.Semaphore(15)
 
         async def fetch_worker(url):
             async with sem:
-                # 必须在并发任务内部建立独立的会话，绝不跨协程共享连接
+                # Establish an independent DB session per task; never share sessions across coroutines
                 session = database.SessionLocal()
                 try:
                     await scanner.fetch_and_save_feed(session, url)
@@ -284,7 +284,7 @@ async def refresh_all_feeds(
                 finally:
                     session.close()
 
-        # 利用 gather 一波流收割所有订阅源
+        # Execute all feed fetching tasks concurrently
         await asyncio.gather(*(fetch_worker(url) for url in urls))
 
     background_tasks.add_task(run_refresh_task)

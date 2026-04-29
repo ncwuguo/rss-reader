@@ -476,7 +476,7 @@
         let showRead = false;
         let viewLayout = 'list'; // 'grid' or 'list'
         let articles = [];
-        // 废弃无用的相对页码，改用物理时间游标
+        // Use timestamp-based cursor instead of relative pagination
         let lastPubDate = null;
         let isLoading = false;
         let hasMore = true;
@@ -528,7 +528,7 @@
                 list.innerHTML = '<div style="padding: 2rem; font-family: var(--font-mono); color: var(--muted);">RETRIEVING ARCHIVE...</div>';
             }
 
-            // 优雅地构建游标 URL，丢弃所有的硬编码判断
+            // Dynamically construct the cursor pagination URL
             let baseEndpoint = feedId === 'all' ? '/articles/' : `/feeds/${feedId}/articles`;
             let url = `${API_BASE}${baseEndpoint}?limit=${PAGE_SIZE}`;
             if (append && lastPubDate) {
@@ -548,7 +548,7 @@
                     hasMore = false;
                 }
 
-                // 提取这一批次里最老的一篇文章的发布时间，作为下一次深潜的锚点
+                // Extract the oldest publication date in this batch to serve as the next cursor anchor
                 if (newArticles.length > 0) {
                     lastPubDate = newArticles[newArticles.length - 1].pub_date;
                 }
@@ -563,46 +563,45 @@
             }
         }
 
-        // 接收 itemsToRender 数组，只渲染需要变更的数据
+        // Render only the necessary items based on the itemsToRender array
         function renderArticles(itemsToRender = articles, append = false) {
             const list = document.getElementById('article-list');
 
-            // 每次渲染前，先移除底部的无限滚动触发器（稍后会重新挂载到最底部）
+            // Temporarily remove the infinite scroll trigger before rendering
             const oldTrigger = document.getElementById('infinite-scroll-trigger');
             if (oldTrigger) oldTrigger.remove();
 
             if (!append) {
-                // 只有在非追加模式（如切换侧边栏分类、切换视图）时，才清空列表
+                // Clear the list only in non-append modes (e.g., view or feed switching)
                 list.innerHTML = '';
                 list.className = viewLayout;
-                // 视图重置时，必须切断原有观察队列，防止已死亡的游离节点长期驻留内存
+                // Disconnect existing observer on view reset to prevent memory leaks from detached nodes
                 if (virtualNodeObserver) {
                     virtualNodeObserver.disconnect();
                 }
                 setupVirtualObserver();
             } else {
-                // 移除可能存在的空状态提示
+                // Remove empty state message if it exists
                 const emptyMsg = list.querySelector('div[style*="padding: 2rem"]');
                 if (emptyMsg) emptyMsg.remove();
             }
 
-            // 过滤出需要显示的内容
             const filtered = itemsToRender.filter(a => showRead || !a.is_read);
 
             if (filtered.length === 0 && !append && articles.length === 0) {
                 list.innerHTML = '<div style="padding: 2rem; font-family: var(--font-mono); color: var(--muted); text-align: center;">' +
                     (hasMore ? 'NO UNREAD IN THIS BATCH - SCROLL FOR MORE' : 'NO ENTRIES FOUND') +
                     '</div>';
-                // 即使当前批次没有未读数据，只要还有下一页，就把触发器挂上
+                // Re-attach scroll trigger if more pages exist, even if current batch has no unread items
                 if (hasMore) appendTrigger(list);
                 return;
             }
 
-            // 祭出大杀器：在内存中操作，脱离文档流，杜绝反复触发重排
+            // Use DocumentFragment for in-memory DOM construction to minimize reflows
             const fragment = document.createDocumentFragment();
 
             filtered.forEach((a, index) => {
-                // 防御性编程：防止因为网络并发导致同一篇文章被追加两次
+                // Defensive programming: prevent duplicate DOM elements due to concurrent network requests
                 if (append && document.querySelector(`.article-item[data-id="${a.id}"]`)) {
                     return;
                 }
@@ -611,32 +610,32 @@
                 li.className = `article-item ${a.is_read ? 'read' : ''}`;
                 li.setAttribute('data-id', a.id);
 
-                // 只有在追加新元素时，才给它们分配入场动画延迟，老元素不动
+                // Apply stagger animation delay only to newly appended elements
                 if (append) li.style.animationDelay = `${Math.min(index * 0.02, 0.5)}s`;
 
-                // 核心性能补丁：如果是首次大规模渲染，只真实渲染前 20 项，剩下的全部作为空壳推迟
+                // Virtualization patch: Render content for the first 20 items, defer the rest as skeletons
                 if (index < 20 || append) {
                     renderArticleContent(li, a);
                     li.setAttribute('data-rendered', 'true');
                 } else {
-                    // 给空壳一个预估高度，防止海量空壳挤在顶部导致瞬间触发所有的 Observer 计算
+                    // Assign an estimated height to skeletons to prevent mass Observer triggering
                     li.style.height = viewLayout === 'list' ? '60px' : '200px';
                 }
 
-                // 强制将新生成的卡片节点塞入虚拟列表监控队列
+                // Observe the newly created DOM node for virtual list rendering
                 virtualNodeObserver.observe(li);
 
                 fragment.appendChild(li);
             });
 
-            // 将拼装好的内存碎片一次性塞入真实的 DOM 树中
+            // Append the fully constructed fragment to the actual DOM tree
             list.appendChild(fragment);
 
-            // 重新挂载无限滚动触发器
+            // Re-attach the infinite scroll trigger to the bottom
             if (hasMore) appendTrigger(list);
         }
 
-        // 提取出一个独立的方法来管理触发器，保持代码整洁
+        // Helper method to attach the intersection observer trigger
         function appendTrigger(list) {
             const loadMore = document.createElement('div');
             loadMore.id = 'infinite-scroll-trigger';
@@ -661,13 +660,13 @@
             if (trigger) observer.observe(trigger);
         }
 
-        // 核心机制：配置虚拟视口监控器
+        // Core mechanism: Configure the virtual viewport observer for DOM recycling
         function setupVirtualObserver() {
             virtualNodeObserver = new IntersectionObserver((entries) => {
                 entries.forEach(entry => {
                     const li = entry.target;
                     if (entry.isIntersecting) {
-                        // 重新进入视口：恢复 DOM，清除硬编码高度交还给浏览器自适应排版
+                        // On entering viewport: Populate DOM and remove hardcoded height for dynamic layout
                         if (!li.hasAttribute('data-rendered')) {
                             const articleId = parseInt(li.getAttribute('data-id'));
                             const a = articles.find(x => x.id === articleId);
@@ -678,10 +677,10 @@
                             li.style.height = '';
                         }
                     } else {
-                        // 离开视口：锁定此时的物理高度，并彻底清空内部复杂节点释放内存
+                        // On exiting viewport: Lock current physical height and purge inner nodes to free memory
                         if (li.hasAttribute('data-rendered')) {
                             const rect = entry.boundingClientRect;
-                            // 只有当元素真实可见时才去锁定高度，忽略被 display:none 的元素
+                            // Lock height only if the element is actually visible (ignore display:none)
                             if (rect.height > 0) {
                                 li.style.height = `${rect.height}px`;
                                 li.innerHTML = '';
@@ -691,16 +690,16 @@
                     }
                 });
             }, {
-                root: document.getElementById('main'), // 绑定主滚动容器
-                rootMargin: '1500px 0px' // 上下预留 1500px 的缓冲带，防止猛刷滚轮时出现短暂白屏
+                root: document.getElementById('main'), // Bind to main scrollable container
+                rootMargin: '1500px 0px' // Add a 1500px vertical buffer to prevent flickering during fast scroll
             });
         }
 
-        // 抽离复用逻辑：专门负责向 li 节点内塞入真实数据的函数
+        // Reusable component logic to populate an individual article node
         function renderArticleContent(li, a) {
-            // 强制同步外壳的 class 状态，防止复活后丢失已读的视觉效果
+            // Sync the outer class state to preserve 'read' visual styling after DOM restoration
             li.classList.toggle('read', a.is_read);
-            // 撕掉可能残留的隐身衣，解决竞态条件导致的永久不可见 Bug
+            // Strip inline opacity to fix potential permanent invisibility bugs caused by race conditions
             li.style.opacity = '';
 
             const date = a.pub_date ? new Date(a.pub_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'undated';
@@ -739,9 +738,9 @@
                     articleEl.style.opacity = '0';
                     setTimeout(() => {
                         articleEl.classList.add('hidden');
-                        // 如果文献被隐藏，必须清除写死的骨架高度，否则流式布局里会留下一个等高的空白大洞
+                        // Clear skeleton height when hidden to prevent layout gaps in flow
                         articleEl.style.height = '';
-                        // 隐藏后清理隐身衣，防止虚拟化监控器在复用该节点时，带着不可见状态复活
+                        // Clear inline opacity so the node isn't stuck invisible if recycled by Observer
                         articleEl.style.opacity = '';
                     }, 300);
                 } else {
@@ -775,7 +774,7 @@
                     articleEl.style.opacity = '0';
                     setTimeout(() => {
                         articleEl.classList.add('hidden');
-                        // 新增：必须清除物理高度和隐身衣，防止被 Observer 捕获后带病复活
+                        // Clear physical height and inline styles to prevent corrupted state upon Observer restoration
                         articleEl.style.height = '';
                         articleEl.style.opacity = '';
                     }, 300);
