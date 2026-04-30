@@ -1,3 +1,16 @@
+// Utility: Extract plain text to mitigate XSS vulnerabilities.
+function getSafeText(html) {
+    if (!html) return '';
+
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const text = doc.body.textContent || '';
+
+    return text.replace(/[&<>'"]/g, tag => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+    }[tag] || tag));
+}
+
+
 // Render only the necessary items based on the itemsToRender array
 function renderArticles(itemsToRender = articles, append = false) {
     const list = document.getElementById('article-list');
@@ -21,6 +34,13 @@ function renderArticles(itemsToRender = articles, append = false) {
         if (emptyMsg) emptyMsg.remove();
     }
 
+    // Performance: Cache rendered item IDs in a Set to reduce O(M*N) DOM queries to O(1) lookups
+    const existingIds = new Set();
+    if (append) {
+        const currentItems = list.querySelectorAll('.article-item');
+        currentItems.forEach(item => existingIds.add(parseInt(item.getAttribute('data-id'))));
+    }
+
     const filtered = itemsToRender.filter(a => showRead || !a.is_read);
 
     if (filtered.length === 0 && !append && articles.length === 0) {
@@ -37,7 +57,7 @@ function renderArticles(itemsToRender = articles, append = false) {
 
     filtered.forEach((a, index) => {
         // Defensive programming: prevent duplicate DOM elements due to concurrent network requests
-        if (append && document.querySelector(`.article-item[data-id="${a.id}"]`)) {
+        if (append && existingIds.has(a.id)) {
             return;
         }
 
@@ -136,12 +156,13 @@ function renderArticleContent(li, a) {
     li.style.opacity = '';
 
     const date = a.pub_date ? new Date(a.pub_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'undated';
+    const safeSummary = getSafeText(a.description);
     li.innerHTML = `
         <div class="article-meta-top">
             <span>${date}</span>
         </div>
         <div class="article-title" title="${a.title.replace(/"/g, '&quot;')}" onclick="window.open('${a.link}', '_blank'); markRead(${a.id})">${a.title}</div>
-        <div class="article-summary">${a.description || ''}</div>
+        <div class="article-summary">${safeSummary}</div>
         <div class="article-actions">
             <button class="btn-text star-btn ${a.is_starred ? 'active' : ''}" onclick="toggleStar(${a.id}, ${!a.is_starred}, event)">
                 ${a.is_starred ? '★' : '☆'}
