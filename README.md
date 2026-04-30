@@ -6,12 +6,15 @@ Built for those who prefer reading over managing complex systems. No bloated fro
 
 ## ✨ Features
 
-* **Zero-Build Frontend**: Pure HTML/CSS/JS. No Webpack, no React, no `node_modules` black hole.
-* **Asynchronous Backend**: Powered by FastAPI and `httpx` for fast, non-blocking feed fetching.
-* **SQLite on Steroids**: Utilizes WAL (Write-Ahead Logging) mode and native database triggers to keep unread counts synced in real-time without expensive SQL aggregations.
-* **Cursor-Based Pagination**: Deep-dive into your archives without the performance hit of traditional `OFFSET` queries.
-* **OPML Support**: One-click import and export of your subscriptions.
-* **Background Sync**: Feeds are refreshed in the background with semaphore-controlled concurrency to prevent connection timeouts.
+- **Zero-Build Frontend**: Pure HTML/CSS/JS. No Webpack, no React, no `node_modules` black hole.
+- **Infinite Scroll & Virtualized DOM**: The vanilla JS frontend utilizes `IntersectionObserver` to dynamically recycle off-screen DOM nodes, ensuring smooth 60fps scrolling even with thousands of articles.
+- **Starred / Favorites**: One-click saving of articles to your dedicated Starred archive for future reading.
+- **Asynchronous Backend**: Powered by FastAPI and `httpx` for fast, non-blocking feed fetching.
+- **SQLite on Steroids**: Utilizes WAL (Write-Ahead Logging) mode and native database triggers to keep unread counts synced in real-time without expensive SQL aggregations.
+- **Cursor-Based Pagination**: Deep-dive into your archives without the performance hit of traditional `OFFSET` queries.
+- **OPML Support**: One-click import and export of your subscriptions.
+- **Background Sync**: Feeds are refreshed in the background with semaphore-controlled concurrency to prevent connection timeouts.
+- **Enhanced Logging**: Integrated `Loguru` for beautiful, intercept-based colorized terminal logs.
 
 ## 🛠️ Tech Stack
 
@@ -21,6 +24,28 @@ Built for those who prefer reading over managing complex systems. No bloated fro
 | Database | SQLite & SQLAlchemy | Disk-backed storage with WAL mode enabled. |
 | Fetcher | HTTPX & Feedparser | Async fetching and robust XML parsing. |
 | Frontend | Vanilla JS & CSS Grid | Responsive editorial layout (List/Grid views). |
+| Utilities | Loguru, Listparser | Advanced logging and OPML processing. |
+
+## 📂 Project Structure
+
+```text
+rss-reader/
+├── backend/
+│   ├── database.py
+│   ├── logger_config.py
+│   ├── main.py
+│   ├── scanner.py
+│   └── requirements.txt
+├── frontend/
+│   ├── css/
+│   │   └── style.css
+│   ├── js/
+│   │   ├── api.js
+│   │   ├── main.js
+│   │   ├── state.js
+│   │   └── ui.js
+│   └── index.html
+└── README.md
 
 ## 🚀 Getting Started
 
@@ -33,8 +58,8 @@ Ensure you have Python 3.10+ installed on your system.
 Clone the repository and install the backend dependencies:
 
 ```bash
-git clone https://github.com/ncwuguo/rss-reader.git
-cd rss_aca
+git clone https://github.com/ncwuguo/rss_aca.git
+cd rss-reader
 pip install -r requirements.txt
 ```
 

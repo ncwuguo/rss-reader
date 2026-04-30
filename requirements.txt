@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+sqlalchemy
+feedparser
+httpx
+python-dateutil
+loguru
+listparser
+python-multipart
