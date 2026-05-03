@@ -157,6 +157,12 @@ function renderArticleContent(li, a) {
 
     const date = a.pub_date ? new Date(a.pub_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'undated';
     const safeSummary = getSafeText(a.description);
+
+    // Lucide Icons
+    const linkIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-link"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`;
+    const starIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-star"><path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"/></svg>`;
+    const checkIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-mail-check"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h8"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/><path d="m16 19 2 2 4-4"/></svg>`;
+
     li.innerHTML = `
         <div class="article-meta-top">
             <span>${date}</span>
@@ -164,14 +170,14 @@ function renderArticleContent(li, a) {
         <div class="article-title" title="${a.title.replace(/"/g, '&quot;')}" onclick="openArticleModal(${a.id}); markRead(${a.id})">${a.title}</div>
         <div class="article-summary">${safeSummary}</div>
         <div class="article-actions">
-            <button class="btn-text link-btn" onclick="window.open('${a.link}', '_blank'); event.stopPropagation();" title="Open Original Link">
-                ↗
+            <button class="btn-icon link-btn" onclick="window.open('${a.link}', '_blank'); event.stopPropagation();" title="Open Original Link">
+                ${linkIcon}
             </button>
-            <button class="btn-text star-btn ${a.is_starred ? 'active' : ''}" onclick="toggleStar(${a.id}, ${!a.is_starred}, event)">
-                ${a.is_starred ? '★' : '☆'}
+            <button class="btn-icon star-btn ${a.is_starred ? 'active' : ''}" onclick="toggleStar(${a.id}, ${!a.is_starred}, event)" title="${a.is_starred ? 'Remove Star' : 'Star Article'}">
+                ${starIcon}
             </button>
-            <button class="btn-text read-btn" onclick="markRead(${a.id}, ${!a.is_read}, event)">
-                ${a.is_read ? '●' : '○'}
+            <button class="btn-icon read-btn ${a.is_read ? 'active' : ''}" onclick="markRead(${a.id}, ${!a.is_read}, event)" title="${a.is_read ? 'Mark as Unread' : 'Mark as Read'}">
+                ${checkIcon}
             </button>
         </div>
     `;

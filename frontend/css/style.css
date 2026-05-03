@@ -252,7 +252,7 @@ body {
 }
 
 .article-item.read {
-    opacity: 0.4;
+    opacity: 0.6;
 }
 
 #article-list.grid .article-item:hover {
@@ -321,10 +321,51 @@ body {
 #article-list.list .article-actions {
     margin-top: 0;
     flex-shrink: 0;
-    width: 80px;
+    width: 100px;
     /* Fixed width to prevent being pushed out */
     justify-content: flex-end;
-    gap: 0.5rem;
+    gap: 0.25rem;
+}
+
+.btn-icon {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--muted);
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.4rem;
+    border-radius: 6px;
+}
+
+.btn-icon:hover {
+    color: var(--fg);
+    background: rgba(0, 0, 0, 0.05);
+}
+
+.btn-icon.star-btn.active {
+    color: #f59e0b;
+    /* Golden star */
+    fill: #f59e0b;
+}
+
+.btn-icon.star-btn.active svg {
+    fill: currentColor;
+}
+
+.btn-icon.read-btn.active {
+    color: var(--accent);
+}
+
+.btn-icon svg {
+    display: block;
+    transition: transform 0.2s ease;
+}
+
+.btn-icon:active svg {
+    transform: scale(0.9);
 }
 
 .btn-text {
@@ -412,6 +453,7 @@ body {
 ::-webkit-scrollbar-thumb:hover {
     background: var(--muted);
 }
+
 /* READING MODAL - IMMERSIVE EDITORIAL EXPERIENCE */
 .reader-modal {
     position: fixed;
@@ -443,7 +485,7 @@ body {
     width: 100%;
     margin: 4rem 2rem;
     padding: 4rem 5rem;
-    box-shadow: 0 30px 60px rgba(0,0,0,0.08), 0 0 0 1px var(--border);
+    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.08), 0 0 0 1px var(--border);
     transform: translateY(30px);
     transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
     position: relative;
@@ -546,7 +588,9 @@ body {
     text-underline-offset: 2px;
 }
 
-.reader-modal-body h2, .reader-modal-body h3, .reader-modal-body h4 {
+.reader-modal-body h2,
+.reader-modal-body h3,
+.reader-modal-body h4 {
     font-family: var(--font-display);
     margin: 2.5rem 0 1rem 0;
     line-height: 1.3;
@@ -555,6 +599,7 @@ body {
 .link-btn {
     opacity: 0.6;
 }
+
 .link-btn:hover {
     opacity: 1;
     color: var(--accent);
