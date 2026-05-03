@@ -1,6 +1,6 @@
 async function fetchFeeds() {
     const res = await fetch(`${API_BASE}/feeds/`);
-    const feeds = await res.json();
+    feeds = await res.json();
     const list = document.getElementById('feed-list');
 
     // Re-render subscription section
