@@ -161,9 +161,12 @@ function renderArticleContent(li, a) {
         <div class="article-meta-top">
             <span>${date}</span>
         </div>
-        <div class="article-title" title="${a.title.replace(/"/g, '&quot;')}" onclick="window.open('${a.link}', '_blank'); markRead(${a.id})">${a.title}</div>
+        <div class="article-title" title="${a.title.replace(/"/g, '&quot;')}" onclick="openArticleModal(${a.id}); markRead(${a.id})">${a.title}</div>
         <div class="article-summary">${safeSummary}</div>
         <div class="article-actions">
+            <button class="btn-text link-btn" onclick="window.open('${a.link}', '_blank'); event.stopPropagation();" title="Open Original Link">
+                ↗
+            </button>
             <button class="btn-text star-btn ${a.is_starred ? 'active' : ''}" onclick="toggleStar(${a.id}, ${!a.is_starred}, event)">
                 ${a.is_starred ? '★' : '☆'}
             </button>
@@ -172,6 +175,46 @@ function renderArticleContent(li, a) {
             </button>
         </div>
     `;
+}
+
+// Modal handling logic
+function openArticleModal(id) {
+    const article = articles.find(a => a.id === id);
+    if (!article) return;
+
+    const modal = document.getElementById('reader-modal');
+
+    // Set metadata
+    const dateStr = article.pub_date ? new Date(article.pub_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Undated';
+    document.getElementById('reader-modal-date').innerText = dateStr;
+    const feedTitle = article.feed_title || (feeds.find(f => f.id === article.feed_id) || {}).title || 'Unknown Feed';
+    document.getElementById('reader-modal-feed').innerText = feedTitle;
+
+    // Set title and link
+    document.getElementById('reader-modal-title').innerText = article.title;
+    const linkEl = document.getElementById('reader-modal-link');
+    linkEl.href = article.link;
+    linkEl.onclick = (e) => { event.stopPropagation(); };
+
+    // Set body content (rendered directly as provided by RSS)
+    document.getElementById('reader-modal-body').innerHTML = article.description || '<p style="color:var(--muted)">No content available.</p>';
+
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden'; // Lock background scrolling
+}
+
+function closeArticleModal() {
+    const modal = document.getElementById('reader-modal');
+    modal.classList.remove('active');
+    document.body.style.overflow = '';
+
+    setTimeout(() => {
+        const bodyEl = document.getElementById('reader-modal-body');
+        const titleEl = document.getElementById('reader-modal-title');
+
+        if (bodyEl) bodyEl.innerHTML = '';
+        if (titleEl) titleEl.innerText = '';
+    }, 400);
 }
 
 function setLayout(layout) {

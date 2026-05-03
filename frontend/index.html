@@ -55,6 +55,32 @@
         <ul id="article-list"></ul>
     </div>
 
+    <!-- Reading Modal Component -->
+    <div id="reader-modal" class="reader-modal" onclick="if(event.target===this) closeArticleModal()">
+        <div class="reader-modal-container">
+            <button class="reader-modal-close" onclick="closeArticleModal()" title="Close">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+            <div class="reader-modal-header">
+                <div id="reader-modal-meta">
+                    <span id="reader-modal-date"></span> &mdash; <span id="reader-modal-feed">Archive</span>
+                </div>
+                <h1 id="reader-modal-title"></h1>
+                <a id="reader-modal-link" href="#" target="_blank" class="reader-modal-external-link">Read Original <svg
+                        width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                        <polyline points="15 3 21 3 21 9"></polyline>
+                        <line x1="10" y1="14" x2="21" y2="3"></line>
+                    </svg></a>
+            </div>
+            <div class="reader-modal-divider"></div>
+            <div id="reader-modal-body" class="reader-modal-body"></div>
+        </div>
+    </div>
+
     <script src="./js/state.js"></script>
     <script src="./js/ui.js"></script>
     <script src="./js/api.js"></script>

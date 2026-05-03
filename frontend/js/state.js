@@ -3,6 +3,7 @@ let currentFeedId = 'all';
 let showRead = false;
 let viewLayout = 'list'; // 'grid' or 'list'
 let articles = [];
+let feeds = [];
 
 // Use timestamp-based cursor instead of relative pagination
 let lastPubDate = null;

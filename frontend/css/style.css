@@ -412,3 +412,150 @@ body {
 ::-webkit-scrollbar-thumb:hover {
     background: var(--muted);
 }
+/* READING MODAL - IMMERSIVE EDITORIAL EXPERIENCE */
+.reader-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(250, 249, 246, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    z-index: 1000;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    overflow-y: auto;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.reader-modal.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.reader-modal-container {
+    background: var(--bg);
+    max-width: 800px;
+    width: 100%;
+    margin: 4rem 2rem;
+    padding: 4rem 5rem;
+    box-shadow: 0 30px 60px rgba(0,0,0,0.08), 0 0 0 1px var(--border);
+    transform: translateY(30px);
+    transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+}
+
+.reader-modal.active .reader-modal-container {
+    transform: translateY(0);
+}
+
+.reader-modal-close {
+    position: absolute;
+    top: 2rem;
+    right: 2rem;
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    transition: color 0.2s;
+    padding: 0.5rem;
+}
+
+.reader-modal-close:hover {
+    color: var(--accent);
+}
+
+.reader-modal-header {
+    margin-bottom: 2.5rem;
+}
+
+#reader-modal-meta {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+#reader-modal-title {
+    font-family: var(--font-display);
+    font-size: 3rem;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: var(--fg);
+    margin-bottom: 1.5rem;
+    text-wrap: balance;
+}
+
+.reader-modal-external-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    color: var(--fg);
+    text-decoration: none;
+    font-weight: 500;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 2px;
+    transition: var(--transition);
+}
+
+.reader-modal-external-link:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+}
+
+.reader-modal-divider {
+    width: 3rem;
+    height: 4px;
+    background: var(--fg);
+    margin-bottom: 3rem;
+}
+
+.reader-modal-body {
+    font-family: var(--font-sans);
+    font-size: 1.15rem;
+    line-height: 1.8;
+    color: #333;
+}
+
+.reader-modal-body p {
+    margin-bottom: 1.5em;
+}
+
+.reader-modal-body img {
+    max-width: 100%;
+    height: auto;
+    margin: 2rem 0;
+    border-radius: 4px;
+}
+
+.reader-modal-body a {
+    color: var(--accent);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+}
+
+.reader-modal-body h2, .reader-modal-body h3, .reader-modal-body h4 {
+    font-family: var(--font-display);
+    margin: 2.5rem 0 1rem 0;
+    line-height: 1.3;
+}
+
+.link-btn {
+    opacity: 0.6;
+}
+.link-btn:hover {
+    opacity: 1;
+    color: var(--accent);
+}
