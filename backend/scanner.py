@@ -85,7 +85,11 @@ async def fetch_and_save_feed(db: Session, feed_url: str):
                     feed_id=feed.id,
                     title=title,
                     link=link,
-                    description=entry.get("summary", entry.get("description", "")),
+                    description=(
+                        entry.content[0].get("value", "")
+                        if hasattr(entry, "content") and entry.content
+                        else entry.get("summary", entry.get("description", ""))
+                    ),
                     pub_date=pub_date,
                 )
                 new_articles.append(article)
