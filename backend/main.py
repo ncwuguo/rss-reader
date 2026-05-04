@@ -244,9 +244,17 @@ async def get_starred_articles(db: Session = Depends(get_db)):
         )
         results = []
         for s in starred_list:
+            # Look up the original Article by link to get the correct Article.id
+            # so that toggleStar (PUT /articles/{id}/star) targets the right record
+            article = (
+                db.query(database.Article)
+                .filter(database.Article.link == s.link)
+                .first()
+            )
+            article_id = article.id if article else s.id
             results.append(
                 {
-                    "id": s.id,
+                    "id": article_id,
                     "title": s.title,
                     "link": s.link,
                     "description": s.description,
