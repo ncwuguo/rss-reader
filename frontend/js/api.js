@@ -98,7 +98,7 @@ async function markRead(id, status = true, event) {
         } else {
             articleEl.classList.toggle('read', status);
             const readBtn = articleEl.querySelector('.read-btn');
-            if (readBtn) readBtn.innerHTML = status ? '● Unread' : '○ Read';
+            if (readBtn) readBtn.classList.toggle('active', status);
         }
     }
 
@@ -118,7 +118,6 @@ async function toggleStar(id, status, event) {
         const starBtn = articleEl.querySelector('.star-btn');
         if (starBtn) {
             starBtn.classList.toggle('active', status);
-            starBtn.innerHTML = status ? '★ Starred' : '☆ Star';
         }
 
         // If in starred view and unstarring, hide it locally
