@@ -287,8 +287,8 @@ async def refresh_all_feeds(
                 session = database.SessionLocal()
                 try:
                     await scanner.fetch_and_save_feed(session, url)
-                except Exception:
-                    pass
+                except Exception as e:
+                    log.error(f"Background fetch failed for feed {url}: {repr(e)}")
                 finally:
                     session.close()
 
