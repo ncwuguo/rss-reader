@@ -1,3 +1,6 @@
+// Debounce timer dictionary — prevents rapid-fire PUT requests per article ID
+const _debounceTimers = {};
+
 async function fetchFeeds() {
     try {
         const res = await fetch(`${API_BASE}/feeds/`);
@@ -139,25 +142,14 @@ async function markRead(id, status = true, event) {
     const idx = articles.findIndex(a => a.id === id);
     if (idx !== -1) articles[idx].is_read = status;
 
-    try {
-        const res = await fetch(`${API_BASE}/articles/${id}/read?read=${status}`, { method: 'PUT' });
-        if (!res.ok) throw new Error(`Server responded with ${res.status}`);
-    } catch (err) {
-        // Revert optimistic UI on failure
-        const articleEl = document.querySelector(`.article-item[data-id="${id}"]`);
-        if (articleEl) {
-            articleEl.classList.toggle('read', !status);
-            articleEl.classList.remove('hidden');
-            articleEl.style.opacity = '';
-            const readBtn = articleEl.querySelector('.read-btn');
-            if (readBtn) readBtn.classList.toggle('active', !status);
-        }
-        if (idx !== -1) articles[idx].is_read = !status;
-        toast.error({
-            title: 'Action Failed',
-            message: 'Could not update read status. The change has been reverted.',
-        });
-    }
+    // Debounce: delay 500ms to coalesce rapid clicks into a single PUT request
+    const timerKey = `read_${id}`;
+    clearTimeout(_debounceTimers[timerKey]);
+    _debounceTimers[timerKey] = setTimeout(() => {
+        fetch(`${API_BASE}/articles/${id}/read?read=${status}`, { method: 'PUT', keepalive: true })
+            .catch(err => console.error('Failed to sync read state:', err));
+        delete _debounceTimers[timerKey];
+    }, 500);
 }
 
 async function toggleStar(id, status, event) {
@@ -187,24 +179,14 @@ async function toggleStar(id, status, event) {
     const idx = articles.findIndex(a => a.id === id);
     if (idx !== -1) articles[idx].is_starred = status;
 
-    try {
-        const res = await fetch(`${API_BASE}/articles/${id}/star?star=${status}`, { method: 'PUT' });
-        if (!res.ok) throw new Error(`Server responded with ${res.status}`);
-    } catch (err) {
-        // Revert optimistic UI on failure
-        const articleEl = document.querySelector(`.article-item[data-id="${id}"]`);
-        if (articleEl) {
-            const starBtn = articleEl.querySelector('.star-btn');
-            if (starBtn) starBtn.classList.toggle('active', !status);
-            articleEl.classList.remove('hidden');
-            articleEl.style.opacity = '';
-        }
-        if (idx !== -1) articles[idx].is_starred = !status;
-        toast.error({
-            title: 'Action Failed',
-            message: 'Could not update star status. The change has been reverted.',
-        });
-    }
+    // Debounce: delay 500ms to coalesce rapid clicks into a single PUT request
+    const timerKey = `star_${id}`;
+    clearTimeout(_debounceTimers[timerKey]);
+    _debounceTimers[timerKey] = setTimeout(() => {
+        fetch(`${API_BASE}/articles/${id}/star?star=${status}`, { method: 'PUT', keepalive: true })
+            .catch(err => console.error('Failed to sync star state:', err));
+        delete _debounceTimers[timerKey];
+    }, 500);
 }
 
 async function addFeed() {
