@@ -1,6 +1,17 @@
 async function fetchFeeds() {
-    const res = await fetch(`${API_BASE}/feeds/`);
-    feeds = await res.json();
+    try {
+        const res = await fetch(`${API_BASE}/feeds/`);
+        if (!res.ok) throw new Error(`Server responded with ${res.status}`);
+        feeds = await res.json();
+    } catch (err) {
+        toast.error({
+            title: 'Feed Sync Failed',
+            message: 'Could not load subscription list. The sidebar may be outdated.',
+            action: { label: 'Retry', onClick: () => fetchFeeds() }
+        });
+        return;
+    }
+
     const list = document.getElementById('feed-list');
 
     // Re-render subscription section
@@ -58,6 +69,7 @@ async function loadArticles(feedId, el, title, append = false) {
 
     try {
         const res = await fetch(url);
+        if (!res.ok) throw new Error(`Server responded with ${res.status}`);
         const newArticles = await res.json();
 
         if (newArticles.length < PAGE_SIZE) {
@@ -72,8 +84,29 @@ async function loadArticles(feedId, el, title, append = false) {
         articles = append ? [...articles, ...newArticles] : newArticles;
         renderArticles(append ? newArticles : articles, append);
     } catch (err) {
-        const list = document.getElementById('article-list');
-        if (!append) list.innerHTML = '<div style="padding: 2rem; color: var(--accent);">CONNECTION ERROR</div>';
+        // Preserve the existing article list; show a toast with retry instead
+        if (!append) {
+            // If this is an initial load and there are no articles yet, show a minimal placeholder
+            const list = document.getElementById('article-list');
+            if (articles.length === 0) {
+                list.innerHTML = '<div style="padding: 2rem; font-family: var(--font-mono); color: var(--muted); text-align: center;">UNABLE TO LOAD ARCHIVE</div>';
+            }
+            // If articles exist from a previous successful load, keep them visible
+        }
+        toast.error({
+            title: append ? 'Load More Failed' : 'Connection Error',
+            message: append
+                ? 'Could not fetch additional articles.'
+                : 'Unable to retrieve articles. The previous content has been preserved.',
+            action: {
+                label: 'Retry',
+                onClick: () => {
+                    // Reset cursor for fresh loads to avoid stale pagination
+                    if (!append) lastPubDate = null;
+                    loadArticles(feedId, el, title, append);
+                }
+            }
+        });
     } finally {
         isLoading = false;
     }
@@ -106,7 +139,25 @@ async function markRead(id, status = true, event) {
     const idx = articles.findIndex(a => a.id === id);
     if (idx !== -1) articles[idx].is_read = status;
 
-    await fetch(`${API_BASE}/articles/${id}/read?read=${status}`, { method: 'PUT' });
+    try {
+        const res = await fetch(`${API_BASE}/articles/${id}/read?read=${status}`, { method: 'PUT' });
+        if (!res.ok) throw new Error(`Server responded with ${res.status}`);
+    } catch (err) {
+        // Revert optimistic UI on failure
+        const articleEl = document.querySelector(`.article-item[data-id="${id}"]`);
+        if (articleEl) {
+            articleEl.classList.toggle('read', !status);
+            articleEl.classList.remove('hidden');
+            articleEl.style.opacity = '';
+            const readBtn = articleEl.querySelector('.read-btn');
+            if (readBtn) readBtn.classList.toggle('active', !status);
+        }
+        if (idx !== -1) articles[idx].is_read = !status;
+        toast.error({
+            title: 'Action Failed',
+            message: 'Could not update read status. The change has been reverted.',
+        });
+    }
 }
 
 async function toggleStar(id, status, event) {
@@ -136,7 +187,24 @@ async function toggleStar(id, status, event) {
     const idx = articles.findIndex(a => a.id === id);
     if (idx !== -1) articles[idx].is_starred = status;
 
-    await fetch(`${API_BASE}/articles/${id}/star?star=${status}`, { method: 'PUT' });
+    try {
+        const res = await fetch(`${API_BASE}/articles/${id}/star?star=${status}`, { method: 'PUT' });
+        if (!res.ok) throw new Error(`Server responded with ${res.status}`);
+    } catch (err) {
+        // Revert optimistic UI on failure
+        const articleEl = document.querySelector(`.article-item[data-id="${id}"]`);
+        if (articleEl) {
+            const starBtn = articleEl.querySelector('.star-btn');
+            if (starBtn) starBtn.classList.toggle('active', !status);
+            articleEl.classList.remove('hidden');
+            articleEl.style.opacity = '';
+        }
+        if (idx !== -1) articles[idx].is_starred = !status;
+        toast.error({
+            title: 'Action Failed',
+            message: 'Could not update star status. The change has been reverted.',
+        });
+    }
 }
 
 async function addFeed() {
@@ -144,35 +212,55 @@ async function addFeed() {
     const url = urlInput.value;
     if (!url) return;
     setStatus('Adding source...');
-    const res = await fetch(`${API_BASE}/feeds/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url })
-    });
-    if (res.ok) {
-        urlInput.value = '';
-        await fetchFeeds();
-        loadArticles('all', document.querySelector('.feed-item'), 'All Archive');
-        setStatus('Source added');
-    } else {
-        setStatus('Failed to add');
+    try {
+        const res = await fetch(`${API_BASE}/feeds/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url })
+        });
+        if (res.ok) {
+            urlInput.value = '';
+            await fetchFeeds();
+            loadArticles('all', document.querySelector('.feed-item'), 'All Archive');
+            toast.success({ title: 'Source Added', message: 'New subscription synced successfully.' });
+        } else {
+            const data = await res.json().catch(() => ({}));
+            toast.error({ title: 'Add Failed', message: data.detail || 'Server rejected this feed URL.' });
+        }
+    } catch (err) {
+        toast.error({ title: 'Connection Error', message: 'Could not reach the server to add this source.' });
     }
 }
 
 async function deleteFeed(id, event) {
     event.stopPropagation();
     if (!confirm('Are you sure you want to delete this feed?')) return;
-    await fetch(`${API_BASE}/feeds/${id}`, { method: 'DELETE' });
-    fetchFeeds();
-    if (currentFeedId == id) loadArticles('all', document.querySelector('.feed-item'), 'All Archive');
+    try {
+        const res = await fetch(`${API_BASE}/feeds/${id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error(`Server responded with ${res.status}`);
+        fetchFeeds();
+        if (currentFeedId == id) loadArticles('all', document.querySelector('.feed-item'), 'All Archive');
+        toast.info({ title: 'Source Removed', message: 'Feed has been deleted.' });
+    } catch (err) {
+        toast.error({ title: 'Delete Failed', message: 'Could not remove this feed. Please try again.' });
+    }
 }
 
 async function refreshAll() {
     setStatus('Syncing all sources...');
-    await fetch(`${API_BASE}/refresh/`, { method: 'POST' });
-    await loadArticles(currentFeedId);
-    await fetchFeeds(); // Refresh unread counts
-    setStatus('Done');
+    try {
+        const res = await fetch(`${API_BASE}/refresh/`, { method: 'POST' });
+        if (!res.ok) throw new Error(`Server responded with ${res.status}`);
+        await loadArticles(currentFeedId);
+        await fetchFeeds();
+        toast.success({ title: 'Sync Complete', message: 'All sources have been refreshed.' });
+    } catch (err) {
+        toast.error({
+            title: 'Sync Failed',
+            message: 'Could not refresh feeds from the server.',
+            action: { label: 'Retry', onClick: () => refreshAll() }
+        });
+    }
 }
 
 async function refreshCurrent() {
@@ -181,13 +269,18 @@ async function refreshCurrent() {
         return;
     }
     setStatus('Syncing current...');
-    const res = await fetch(`${API_BASE}/feeds/${currentFeedId}/refresh`, { method: 'POST' });
-    if (res.ok) {
+    try {
+        const res = await fetch(`${API_BASE}/feeds/${currentFeedId}/refresh`, { method: 'POST' });
+        if (!res.ok) throw new Error(`Server responded with ${res.status}`);
         await loadArticles(currentFeedId);
-        await fetchFeeds(); // Refresh unread counts
-        setStatus('Done');
-    } else {
-        setStatus('Failed');
+        await fetchFeeds();
+        toast.success({ title: 'Sync Complete', message: 'Current feed has been refreshed.' });
+    } catch (err) {
+        toast.error({
+            title: 'Sync Failed',
+            message: 'Could not refresh this feed.',
+            action: { label: 'Retry', onClick: () => refreshCurrent() }
+        });
     }
 }
 
@@ -197,10 +290,15 @@ async function importOpml(input) {
     formData.append('file', input.files[0]);
 
     setStatus('Importing archive...');
-    const res = await fetch(`${API_BASE}/opml/import`, { method: 'POST', body: formData });
-    const data = await res.json();
-    setStatus(data.message);
-    fetchFeeds();
+    try {
+        const res = await fetch(`${API_BASE}/opml/import`, { method: 'POST', body: formData });
+        if (!res.ok) throw new Error(`Server responded with ${res.status}`);
+        const data = await res.json();
+        toast.success({ title: 'Import Complete', message: data.message || 'OPML file imported successfully.' });
+        fetchFeeds();
+    } catch (err) {
+        toast.error({ title: 'Import Failed', message: 'Could not import OPML file. Please check the format and try again.' });
+    }
     input.value = '';
 }
 
