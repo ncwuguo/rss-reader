@@ -7,7 +7,6 @@ import database
 import listparser
 import scanner
 from fastapi import (
-    BackgroundTasks,
     Depends,
     FastAPI,
     File,
@@ -270,33 +269,27 @@ async def get_starred_articles(db: Session = Depends(get_db)):
 
 
 @app.post("/refresh/")
-async def refresh_all_feeds(
-    background_tasks: BackgroundTasks, db: Session = Depends(get_db)
-):
-    async def run_refresh_task():
-        # Get URLs in the main thread to avoid session issues in background
-        feeds = db.query(database.Feed).all()
-        urls = [f.url for f in feeds]
+async def refresh_all_feeds(db: Session = Depends(get_db)):
+    feeds = db.query(database.Feed).all()
+    urls = [f.url for f in feeds]
 
-        # Limit maximum concurrency to prevent file descriptor exhaustion
-        sem = asyncio.Semaphore(15)
+    # Limit maximum concurrency to prevent file descriptor exhaustion
+    sem = asyncio.Semaphore(15)
 
-        async def fetch_worker(url):
-            async with sem:
-                # Establish an independent DB session per task; never share sessions across coroutines
-                session = database.SessionLocal()
-                try:
-                    await scanner.fetch_and_save_feed(session, url)
-                except Exception as e:
-                    log.error(f"Background fetch failed for feed {url}: {repr(e)}")
-                finally:
-                    session.close()
+    async def fetch_worker(url):
+        async with sem:
+            # Establish an independent DB session per task; never share sessions across coroutines
+            session = database.SessionLocal()
+            try:
+                await scanner.fetch_and_save_feed(session, url)
+            except Exception as e:
+                log.error(f"Fetch failed for feed {url}: {repr(e)}")
+            finally:
+                session.close()
 
-        # Execute all feed fetching tasks concurrently
-        await asyncio.gather(*(fetch_worker(url) for url in urls))
-
-    background_tasks.add_task(run_refresh_task)
-    return {"message": "Refresh started in background"}
+    # Execute all feed fetching tasks concurrently and await completion
+    await asyncio.gather(*(fetch_worker(url) for url in urls))
+    return {"message": "Refresh completed"}
 
 
 @app.post("/feeds/{feed_id}/refresh")
