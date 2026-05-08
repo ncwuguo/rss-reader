@@ -203,7 +203,7 @@ async function addFeed() {
         if (res.ok) {
             urlInput.value = '';
             await fetchFeeds();
-            loadArticles('all', document.querySelector('.feed-item'), 'All Archive');
+            await loadArticles('all', document.querySelector('.feed-item'), 'All Archive');
             toast.success({ title: 'Source Added', message: 'New subscription synced successfully.' });
         } else {
             const data = await res.json().catch(() => ({}));
@@ -222,7 +222,7 @@ async function deleteFeed(id, event) {
         if (!res.ok) throw new Error(`Server responded with ${res.status}`);
         fetchFeeds();
         if (currentFeedId == id) loadArticles('all', document.querySelector('.feed-item'), 'All Archive');
-        toast.info({ title: 'Source Removed', message: 'Feed has been deleted.' });
+        toast.success({ title: 'Source Removed', message: 'Feed has been deleted.' });
     } catch (err) {
         toast.error({ title: 'Delete Failed', message: 'Could not remove this feed. Please try again.' });
     }
@@ -276,8 +276,8 @@ async function importOpml(input) {
         const res = await fetch(`${API_BASE}/opml/import`, { method: 'POST', body: formData });
         if (!res.ok) throw new Error(`Server responded with ${res.status}`);
         const data = await res.json();
+        await fetchFeeds();
         toast.success({ title: 'Import Complete', message: data.message || 'OPML file imported successfully.' });
-        fetchFeeds();
     } catch (err) {
         toast.error({ title: 'Import Failed', message: 'Could not import OPML file. Please check the format and try again.' });
     }
