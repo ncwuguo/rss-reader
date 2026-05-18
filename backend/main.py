@@ -94,6 +94,8 @@ class FeedSchema(BaseModel):
     id: int
     title: str
     url: str
+    issn: str | None = None
+    fetch_mode: str | None = None
     description: str | None
     unread_count: int
 

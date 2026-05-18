@@ -10,14 +10,18 @@ from sqlalchemy import (
     String,
     Text,
     create_engine,
+    text,
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
+from sqlalchemy.pool import NullPool
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///./rss_reader.db"
 
 engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+    SQLALCHEMY_DATABASE_URL,
+    connect_args={"check_same_thread": False},
+    poolclass=NullPool,
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -30,6 +34,8 @@ class Feed(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String, index=True)
     url = Column(String, unique=True, index=True)
+    issn = Column(String, nullable=True)
+    fetch_mode = Column(String, nullable=True)
     description = Column(String, nullable=True)
     unread_count = Column(Integer, default=0)
     last_updated = Column(DateTime, default=datetime.datetime.utcnow)
@@ -74,7 +80,6 @@ class StarredArticle(Base):
 def init_db():
     Base.metadata.create_all(bind=engine)
     # Performance optimization: Use SQLite triggers to natively manage unread_count
-    from sqlalchemy import text
 
     with engine.connect() as conn:
         # Enable WAL mode to improve concurrent read/write performance
