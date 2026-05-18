@@ -239,5 +239,5 @@ function toggleShowRead() {
 function setStatus(text) {
     const el = document.getElementById('status-text');
     el.innerText = text;
-    setTimeout(() => { if (el.innerText === text) el.innerText = ''; }, 3000);
+    setTimeout(() => { if (el.innerText === text) el.innerText = ''; },3000);
 }
