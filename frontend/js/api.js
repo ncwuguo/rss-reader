@@ -287,3 +287,63 @@ async function importOpml(input) {
 function exportOpml() {
     window.location.href = `${API_BASE}/opml/export`;
 }
+
+async function markAllCurrentAsRead() {
+    if (isLoading) return;
+
+    if (currentFeedId === 'starred') {
+        articles.forEach(a => a.is_read = true);
+        renderArticles();
+        toast.info({ title: 'Favorites', message: 'Starred articles marked as read locally.' });
+        return;
+    }
+
+    const isAll = currentFeedId === 'all';
+    const endpoint = isAll ? `${API_BASE}/articles/read-all` : `${API_BASE}/feeds/${currentFeedId}/read-all`;
+
+    // Find current feed name for clear feedback
+    const currentFeed = feeds.find(f => f.id === currentFeedId);
+    const feedName = isAll ? 'All Archive' : (currentFeed ? currentFeed.title : 'Current Source');
+
+    // Optimistic local state update
+    articles.forEach(a => {
+        if (isAll || a.feed_id === currentFeedId) {
+            a.is_read = true;
+        }
+    });
+
+    if (isAll) {
+        feeds.forEach(f => f.unread_count = 0);
+        document.querySelectorAll('#feed-list .unread-badge').forEach(b => b.innerText = '0');
+    } else if (currentFeed) {
+        currentFeed.unread_count = 0;
+        const activeFeedItem = document.querySelector('#feed-list .feed-item.active');
+        if (activeFeedItem) {
+            const badge = activeFeedItem.querySelector('.unread-badge');
+            if (badge) badge.innerText = '0';
+        }
+    }
+
+    // Re-render articles list according to showRead
+    renderArticles();
+
+    setStatus('Marking as read...');
+    try {
+        const res = await fetch(endpoint, { method: 'PUT' });
+        if (!res.ok) throw new Error(`Server responded with ${res.status}`);
+
+        // Sync feed list to ensure absolute consistency with backend triggers
+        await fetchFeeds();
+
+        toast.success({
+            title: 'Marked as Read',
+            message: `All entries in "${feedName}" marked as read.`
+        });
+    } catch (err) {
+        toast.error({
+            title: 'Failed',
+            message: 'Could not mark articles as read on server.',
+            action: { label: 'Retry', onClick: () => markAllCurrentAsRead() }
+        });
+    }
+}

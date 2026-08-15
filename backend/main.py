@@ -196,6 +196,40 @@ async def toggle_read(
     return {"message": "Updated read status"}
 
 
+@app.put("/feeds/{feed_id}/read-all")
+async def mark_feed_as_read(feed_id: int, db: Session = Depends(get_db)):
+    def perform_mark():
+        feed = db.query(database.Feed).filter(database.Feed.id == feed_id).first()
+        if not feed:
+            return False
+        db.query(database.Article).filter(
+            database.Article.feed_id == feed_id,
+            database.Article.is_read == False,
+        ).update({"is_read": True}, synchronize_session=False)
+        feed.unread_count = 0
+        db.commit()
+        return True
+
+    success = await run_sync_in_thread(perform_mark)
+    if not success:
+        raise HTTPException(status_code=404, detail="Feed not found")
+    return {"message": f"All articles in feed {feed_id} marked as read"}
+
+
+@app.put("/articles/read-all")
+async def mark_all_articles_as_read(db: Session = Depends(get_db)):
+    def perform_mark():
+        db.query(database.Article).filter(database.Article.is_read == False).update(
+            {"is_read": True}, synchronize_session=False
+        )
+        db.query(database.Feed).update({"unread_count": 0}, synchronize_session=False)
+        db.commit()
+        return True
+
+    await run_sync_in_thread(perform_mark)
+    return {"message": "All articles marked as read"}
+
+
 @app.put("/articles/{article_id}/star")
 async def toggle_star(
     article_id: int, star: bool = True, db: Session = Depends(get_db)
